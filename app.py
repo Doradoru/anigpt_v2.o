@@ -1,24 +1,23 @@
 import streamlit as st
 import gspread
-import json
 from google.oauth2.service_account import Credentials
 from datetime import datetime
+import json
 
-st.set_page_config(page_title="AniGPT Setup", layout="centered")
-
+st.set_page_config(page_title="🧠 AniGPT Setup", layout="centered")
 st.title("🧠 AniGPT – Auto Tab Setup & Sheet Sync")
 
-# ✅ Load credentials from secrets.toml
+# 1️⃣ Load credentials from Streamlit secrets
 json_key = st.secrets["GOOGLE_SHEET_JSON"]
 if isinstance(json_key, str):
     json_key = json.loads(json_key)
 
-# ✅ Connect to Google Sheet
+# 2️⃣ Authorize with Google Sheets API
 scope = ["https://www.googleapis.com/auth/spreadsheets"]
 creds = Credentials.from_service_account_info(json_key, scopes=scope)
 client = gspread.authorize(creds)
 
-# ✅ Open Sheet
+# 3️⃣ Open Google Sheet
 SHEET_NAME = "AniGPT_DB"
 try:
     sheet = client.open(SHEET_NAME)
@@ -27,7 +26,7 @@ except:
     st.error(f"❌ Failed to open sheet: {SHEET_NAME}")
     st.stop()
 
-# ✅ Define all tabs and their expected headers
+# 4️⃣ Define Tabs + Headers (including smart futuristic ones)
 tabs = {
     "Memory": ["Date", "Input", "Response", "User"],
     "Mood logs": ["Date", "Mood", "Trigger", "User"],
@@ -42,7 +41,8 @@ tabs = {
     "User facts": ["Fact", "Context", "User"],
     "Task done": ["Task", "Date", "User"],
     "Auto backup logs": ["Date", "Action", "User"],
-    # Extra AI smart tabs
+
+    # 🧠 Advanced Tabs
     "Behavior Patterns": ["Date", "User", "Pattern", "Emotion", "Trigger", "Notes"],
     "Skill Tracker": ["Date", "User", "Skill", "Level", "Practice Time", "Resource Used"],
     "AI Feedback": ["Date", "User", "Feedback Type", "Message", "Context"],
@@ -51,7 +51,7 @@ tabs = {
     "Relationship Journal": ["Date", "Type", "Summary", "Emotion", "Action Taken", "User"]
 }
 
-# ✅ Create or update tabs
+# 5️⃣ Auto-create/update tabs & headers
 existing_tabs = [ws.title for ws in sheet.worksheets()]
 created, updated = [], []
 
@@ -64,18 +64,18 @@ for tab, headers in tabs.items():
         ws = sheet.worksheet(tab)
         existing_headers = ws.row_values(1)
         missing = [h for h in headers if h not in existing_headers]
+        for m in missing:
+            ws.update_cell(1, len(existing_headers)+1, m)
+            existing_headers.append(m)
         if missing:
-            for m in missing:
-                ws.update_cell(1, len(existing_headers)+1, m)
-                existing_headers.append(m)
             updated.append(f"{tab} (+{len(missing)} columns)")
 
-# ✅ Show summary
+# 6️⃣ Output summary to user
 if created:
     st.success(f"🆕 Tabs Created: {', '.join(created)}")
 if updated:
     st.info(f"🛠️ Tabs Updated: {', '.join(updated)}")
 if not created and not updated:
-    st.success("✅ All tabs and headers are already correct!")
+    st.success("✅ All tabs and headers are already perfect!")
 
-st.caption("📌 AniGPT auto-sheet setup complete. Continue building Jarvis... 🚀")
+st.caption("📌 AniGPT v2 sheet setup complete. Continue building Jarvis... 🚀")
