@@ -20,7 +20,7 @@ client = gspread.authorize(creds)
 sheet = client.open("AniGPT_DB")
 
 # Auto-create required tabs if not present
-required_tabs = [
+required_tabs = 
     "Memory", "Mood logs", "Daily journal", "Learning", "Reminders",
     "Life goals", "Voice logs", "Anibook outline", "Improvement notes",
     
