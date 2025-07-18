@@ -1,147 +1,81 @@
 import streamlit as st
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-import pandas as pd
 import json
+from google.oauth2.service_account import Credentials
 from datetime import datetime
 
-st.set_page_config(page_title="AniGPT v2.0", layout="centered")
-st.title("🧠 AniGPT v2.0 – Your Personal Learning Assistant")
+st.set_page_config(page_title="AniGPT Setup", layout="centered")
 
-# ---------------------- Auth & Google Sheet Setup ----------------------
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+st.title("🧠 AniGPT – Auto Tab Setup & Sheet Sync")
+
+# ✅ Load credentials from secrets.toml
 json_key = st.secrets["GOOGLE_SHEET_JSON"]
-service_account_info = json.loads(json_key)
-creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
+if isinstance(json_key, str):
+    json_key = json.loads(json_key)
+
+# ✅ Connect to Google Sheet
+scope = ["https://www.googleapis.com/auth/spreadsheets"]
+creds = Credentials.from_service_account_info(json_key, scopes=scope)
 client = gspread.authorize(creds)
-sheet = client.open("AniGPT_DB")
 
-# ---------------------- Auto Tab Detection ----------------------
-def detect_tab(text):
-    text = text.lower()
+# ✅ Open Sheet
+SHEET_NAME = "AniGPT_DB"
+try:
+    sheet = client.open(SHEET_NAME)
+    st.success(f"✅ Connected to Sheet: {SHEET_NAME}")
+except:
+    st.error(f"❌ Failed to open sheet: {SHEET_NAME}")
+    st.stop()
 
-    if any(word in text for word in ["mood", "feeling", "happy", "sad", "angry", "stressed", "emotional"]):
-        return "Mood logs"
-
-    elif any(word in text for word in ["learned", "learning", "today i learned", "study", "knowledge", "til"]):
-        return "Learning"
-
-    elif any(word in text for word in ["remind", "reminder", "todo", "to do", "task", "deadline"]):
-        return "Reminders"
-
-    elif any(word in text for word in ["goal", "target", "aim", "milestone", "achieve"]):
-        return "Life goals"
-
-    elif any(word in text for word in ["quote", "thought", "inspiration", "motivational"]):
-        return "Quotes"
-
-    elif any(word in text for word in ["journal", "diary", "today", "i felt", "i experienced"]):
-        return "Daily journal"
-
-    elif any(word in text for word in ["improve", "problem", "fix", "solution", "habit", "mistake"]):
-        return "Improvement notes"
-
-    elif any(word in text for word in ["voice", "audio", "call", "conversation"]):
-        return "Voice logs"
-
-    elif any(word in text for word in ["outline", "book", "structure", "chapters"]):
-        return "Anibook outline"
-
-    elif any(word in text for word in ["backup", "log", "savepoint"]):
-        return "Auto backup logs"
-
-    elif any(word in text for word in ["task done", "completed", "finished"]):
-        return "Task done"
-
-    elif any(word in text for word in ["my name", "about me", "i am", "i like", "personal detail"]):
-        return "User facts"
-
-    else:
-        return "Memory"
-
-# ---------------------- Input Section ----------------------
-user = st.selectbox("👤 Select User", ["Ani", "Anne"])
-user_input = st.text_area("✍️ What's on your mind?", height=150)
-submit = st.button("💾 Save to Google Sheet")
-
-# ---------------------- Tab Structures ----------------------
-tab_columns = {
+# ✅ Define all tabs and their expected headers
+tabs = {
+    "Memory": ["Date", "Input", "Response", "User"],
     "Mood logs": ["Date", "Mood", "Trigger", "User"],
     "Daily journal": ["Date", "Summary", "Keywords", "User"],
     "Learning": ["Date", "WhatWasLearned", "Context", "User"],
     "Reminders": ["Task", "Date", "Time", "Status", "User"],
     "Life goals": ["Goal", "Category", "Target Date", "Progress", "User"],
-    "Voice logs": ["Date", "Transcript", "User"],
-    "Anibook outline": ["Title", "Points", "User"],
-    "Improvement notes": ["Date", "Issue", "Solution", "User"],
-    "Quotes": ["Quote", "Author", "User"],
-    "User facts": ["Fact", "User"],
+    "Voice logs": ["Date", "Command", "Action", "User"],
+    "Anibook outline": ["Date", "Topic", "Subpoints", "User"],
+    "Improvement notes": ["Date", "Observation", "Improvement", "User"],
+    "Quotes": ["Date", "Quote", "Source", "User"],
+    "User facts": ["Fact", "Context", "User"],
     "Task done": ["Task", "Date", "User"],
-    "Auto backup logs": ["Backup Name", "Date", "User"],
-    "Memory": ["Date", "Note", "User"]
+    "Auto backup logs": ["Date", "Action", "User"],
+    # Extra AI smart tabs
+    "Behavior Patterns": ["Date", "User", "Pattern", "Emotion", "Trigger", "Notes"],
+    "Skill Tracker": ["Date", "User", "Skill", "Level", "Practice Time", "Resource Used"],
+    "AI Feedback": ["Date", "User", "Feedback Type", "Message", "Context"],
+    "Command History": ["Date", "User", "Command", "Result", "Status"],
+    "Gratitude Logs": ["Date", "User", "Gratitude 1", "Gratitude 2", "Gratitude 3"],
+    "Relationship Journal": ["Date", "Type", "Summary", "Emotion", "Action Taken", "User"]
 }
 
-# ---------------------- Ensure All Tabs Exist ----------------------
-def ensure_tabs():
-    existing_tabs = [ws.title for ws in sheet.worksheets()]
-    for tab in tab_columns:
-        if tab not in existing_tabs:
-            sheet.add_worksheet(title=tab, rows="100", cols=str(len(tab_columns[tab])))
-            sheet.worksheet(tab).append_row(tab_columns[tab])
+# ✅ Create or update tabs
+existing_tabs = [ws.title for ws in sheet.worksheets()]
+created, updated = [], []
 
-ensure_tabs()
+for tab, headers in tabs.items():
+    if tab not in existing_tabs:
+        ws = sheet.add_worksheet(title=tab, rows="100", cols=str(len(headers)))
+        ws.insert_row(headers, 1)
+        created.append(tab)
+    else:
+        ws = sheet.worksheet(tab)
+        existing_headers = ws.row_values(1)
+        missing = [h for h in headers if h not in existing_headers]
+        if missing:
+            for m in missing:
+                ws.update_cell(1, len(existing_headers)+1, m)
+                existing_headers.append(m)
+            updated.append(f"{tab} (+{len(missing)} columns)")
 
-# ---------------------- Save to Sheet ----------------------
-if submit and user_input.strip() != "":
-    tab = detect_tab(user_input)
-    worksheet = sheet.worksheet(tab)
-    row_data = []
+# ✅ Show summary
+if created:
+    st.success(f"🆕 Tabs Created: {', '.join(created)}")
+if updated:
+    st.info(f"🛠️ Tabs Updated: {', '.join(updated)}")
+if not created and not updated:
+    st.success("✅ All tabs and headers are already correct!")
 
-    today = datetime.now().strftime("%Y-%m-%d")
-
-    if tab == "Mood logs":
-        mood = "happy" if "happy" in user_input.lower() else "unknown"
-        trigger = user_input
-        row_data = [today, mood, trigger, user]
-
-    elif tab == "Daily journal":
-        row_data = [today, user_input, "general", user]
-
-    elif tab == "Learning":
-        row_data = [today, user_input, user, user]
-
-    elif tab == "Reminders":
-        row_data = [user_input, today, "00:00", "pending", user]
-
-    elif tab == "Life goals":
-        row_data = [user_input, "General", "2025-12-31", "0%", user]
-
-    elif tab == "Voice logs":
-        row_data = [today, user_input, user]
-
-    elif tab == "Anibook outline":
-        row_data = ["Untitled", user_input, user]
-
-    elif tab == "Improvement notes":
-        row_data = [today, "Issue: " + user_input, "Solution: TBD", user]
-
-    elif tab == "Quotes":
-        row_data = [user_input, "Unknown", user]
-
-    elif tab == "User facts":
-        row_data = [user_input, user]
-
-    elif tab == "Task done":
-        row_data = [user_input, today, user]
-
-    elif tab == "Auto backup logs":
-        row_data = ["AutoBackup", today, user]
-
-    elif tab == "Memory":
-        row_data = [today, user_input, user]
-
-    worksheet.append_row(row_data)
-    st.success(f"✅ Saved to '{tab}' tab!")
-else:
-    if submit:
-        st.warning("⚠️ Please enter some text before submitting.")
+st.caption("📌 AniGPT auto-sheet setup complete. Continue building Jarvis... 🚀")
