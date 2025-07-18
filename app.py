@@ -23,4 +23,4 @@ sheet = client.open("AniGPT_DB")
 required_tabs = [
     "Memory", "Mood logs", "Daily journal", "Learning", "Reminders",
     "Life goals", "Voice logs", "Anibook outline", "Improvement notes",
-    "
+    
