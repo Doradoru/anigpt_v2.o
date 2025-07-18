@@ -20,7 +20,8 @@ client = gspread.authorize(creds)
 # 3️⃣ Open Google Sheet
 SHEET_NAME = "AniGPT_DB"
 try:
-    sheet = client.open(SHEET_NAME)
+    sheet = client.open("AniGPT_DB")
+
     st.success(f"✅ Connected to Sheet: {SHEET_NAME}")
 except:
     st.error(f"❌ Failed to open sheet: {SHEET_NAME}")
