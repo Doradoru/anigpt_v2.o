@@ -8,16 +8,15 @@ st.set_page_config(page_title="AniGPT v2.0", layout="centered")
 st.title("🧠 AniGPT v2.0 – Your Personal Learning Assistant")
 st.markdown("Write anything. I'll auto-detect where to save it. You're free now, Ani. 😎")
 
-# Google Sheet auth
+# Google Sheets setup
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 json_key = st.secrets["GOOGLE_SHEET_JSON"]
 service_account_info = json.loads(json_key)
 creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
 client = gspread.authorize(creds)
-
 sheet = client.open("AniGPT_DB")
 
-# All needed tabs
+# Ensure all required tabs exist
 required_tabs = [
     "Memory", "Mood logs", "Daily journal", "Learning", "Reminders",
     "Life goals", "Voice logs", "Anibook outline", "Improvement notes",
@@ -28,7 +27,7 @@ for tab in required_tabs:
     if tab not in existing_tabs:
         sheet.add_worksheet(title=tab, rows="1000", cols="20")
 
-# Helper to auto-detect tab
+# Function to detect tab
 def detect_tab(text):
     text = text.lower()
     if any(word in text for word in ["mood", "happy", "sad", "stress"]):
@@ -48,14 +47,13 @@ def detect_tab(text):
     else:
         return "Memory"
 
-# UI
-st.header("📥 Add Your Input")
-user_name = st.text_input("👤 Your Name (Ani / Anne)")
-entry_text = st.text_area("📝 Just write... I'll handle the rest.")
-
+# 🧑 User dropdown + Input
+st.header("📥 Input Entry")
+user_name = st.selectbox("👤 Who are you?", ["Ani", "Anne"])
+entry_text = st.text_area("📝 Type your message... I'll auto-categorize it.")
 submit = st.button("💾 Auto Save")
 
-# Submission logic
+# Save logic
 if submit and entry_text.strip() != "":
     entry_type = detect_tab(entry_text)
     sheet_tab = sheet.worksheet(entry_type)
