@@ -31,3 +31,12 @@ user_input = st.text_area("✍️ Your Input (thoughts, notes, learning...)", he
 submit = st.button("💾 Save to Google Sheet")
 
 
+import streamlit as st
+st.title("🔐 AniGPT Secret Test")
+
+try:
+    secret_json = st.secrets["GOOGLE_SHEET_JSON"]
+    st.success("✅ Secret Loaded Successfully!")
+    st.code(secret_json)
+except KeyError as e:
+    st.error(f"❌ Secret not found: {e}")
