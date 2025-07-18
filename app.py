@@ -5,7 +5,15 @@ from google.oauth2.service_account import Credentials
 import json
 
 st.set_page_config(page_title="🧠 AniGPT Input", layout="centered")
-st.title("📥 AniGPT: Smart Data Input Panel")
+st.title("📥 AniGPT: Smart Auto Input Panel")
+
+# ✅ Get user from URL
+query_params = st.experimental_get_query_params()
+user = query_params.get("user", ["Unknown"])[0]  # Default to Unknown
+
+if user not in ["Ani", "Anne"]:
+    st.warning("🚫 Invalid or missing user. Please use a link with `?user=Ani` or `?user=Anne`")
+    st.stop()
 
 # 🔐 Credentials
 json_key = st.secrets["GOOGLE_SHEET_JSON"]
@@ -19,13 +27,10 @@ client = gspread.authorize(creds)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1UIYuoQRhRfR1rjoy-6jHK5tLyCso-3fBvqLtSTv3-lc"
 sheet = client.open_by_url(SHEET_URL)
 
-# 👤 User Selector
-user = st.selectbox("Select User", ["Ani", "Anne"])
+# 🔍 Detect Tab Automatically (Optional: via route or page name)
+tab = st.selectbox("📑 Select Entry Type", ["Mood logs", "Daily journal", "Reminders", "Learning", "Quotes"])
 
-# 🧾 Tab Selector
-tab = st.selectbox("Select Tab to Add Entry", ["Mood logs", "Daily journal", "Reminders", "Learning", "Quotes"])
-
-# 📝 Input Fields per Tab
+# 📝 Input
 data = {}
 if tab == "Mood logs":
     data["Date"] = datetime.today().strftime("%Y-%m-%d")
@@ -59,12 +64,12 @@ elif tab == "Quotes":
     data["User"] = user
 
 # ✅ Submit Button
-if st.button("💾 Save Entry"):
+if st.button("💾 Auto-Save Entry"):
     try:
         ws = sheet.worksheet(tab)
         headers = ws.row_values(1)
         row = [data.get(h, "") for h in headers]
         ws.append_row(row)
-        st.success("✅ Entry saved successfully!")
+        st.success(f"✅ Entry saved successfully to {tab} as {user}")
     except Exception as e:
         st.error(f"❌ Failed to save entry.\n\n{e}")
