@@ -28,5 +28,6 @@ tab_options = [
 selected_tab = st.selectbox("📂 Where to save this input?", tab_options)
 
 user_input = st.text_area("✍️ Your Input (thoughts, notes, learning...)", height=150)
-submit = st.button("💾 Save to Goo
+submit = st.button("💾 Save to Google Sheet")
+
 
