@@ -1,83 +1,70 @@
 import streamlit as st
+from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
-from datetime import datetime
 import json
 
-st.set_page_config(page_title="🧠 AniGPT Setup", layout="centered")
-st.title("🧠 AniGPT – Auto Tab Setup & Sheet Sync")
+st.set_page_config(page_title="🧠 AniGPT Input", layout="centered")
+st.title("📥 AniGPT: Smart Data Input Panel")
 
-# 1️⃣ Load credentials from Streamlit secrets
+# 🔐 Credentials
 json_key = st.secrets["GOOGLE_SHEET_JSON"]
 if isinstance(json_key, str):
     json_key = json.loads(json_key)
-
-# 2️⃣ Authorize
 scope = ["https://www.googleapis.com/auth/spreadsheets"]
 creds = Credentials.from_service_account_info(json_key, scopes=scope)
 client = gspread.authorize(creds)
 
-# 3️⃣ Open by URL (not name to avoid errors)
+# 🔗 Sheet open
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1UIYuoQRhRfR1rjoy-6jHK5tLyCso-3fBvqLtSTv3-lc"
-try:
-    sheet = client.open_by_url(SHEET_URL)
-    st.success("✅ Connected to AniGPT_DB Google Sheet")
-except Exception as e:
-    st.error(f"❌ Failed to open Google Sheet.\n\n{e}")
-    st.stop()
+sheet = client.open_by_url(SHEET_URL)
 
-# 4️⃣ Define required tabs + headers
-tabs = {
-    "Memory": ["Date", "Input", "Response", "User"],
-    "Mood logs": ["Date", "Mood", "Trigger", "User"],
-    "Daily journal": ["Date", "Summary", "Keywords", "User"],
-    "Learning": ["Date", "WhatWasLearned", "Context", "User"],
-    "Reminders": ["Task", "Date", "Time", "Status", "User"],
-    "Life goals": ["Goal", "Category", "Target Date", "Progress", "User"],
-    "Voice logs": ["Date", "Command", "Action", "User"],
-    "Anibook outline": ["Date", "Topic", "Subpoints", "User"],
-    "Improvement notes": ["Date", "Observation", "Improvement", "User"],
-    "Quotes": ["Date", "Quote", "Source", "User"],
-    "User facts": ["Fact", "Context", "User"],
-    "Task done": ["Task", "Date", "User"],
-    "Auto backup logs": ["Date", "Action", "User"],
+# 👤 User Selector
+user = st.selectbox("Select User", ["Ani", "Anne"])
 
-    # 🔮 Advanced Smart Tabs
-    "Behavior Patterns": ["Date", "User", "Pattern", "Emotion", "Trigger", "Notes"],
-    "Skill Tracker": ["Date", "User", "Skill", "Level", "Practice Time", "Resource Used"],
-    "AI Feedback": ["Date", "User", "Feedback Type", "Message", "Context"],
-    "Command History": ["Date", "User", "Command", "Result", "Status"],
-    "Gratitude Logs": ["Date", "User", "Gratitude 1", "Gratitude 2", "Gratitude 3"],
-    "Relationship Journal": ["Date", "Type", "Summary", "Emotion", "Action Taken", "User"]
-}
+# 🧾 Tab Selector
+tab = st.selectbox("Select Tab to Add Entry", ["Mood logs", "Daily journal", "Reminders", "Learning", "Quotes"])
 
-# 5️⃣ Create/update all tabs
-created, updated = [], []
-existing_tabs = [ws.title for ws in sheet.worksheets()]
+# 📝 Input Fields per Tab
+data = {}
+if tab == "Mood logs":
+    data["Date"] = datetime.today().strftime("%Y-%m-%d")
+    data["Mood"] = st.selectbox("How do you feel?", ["😊 Happy", "😞 Sad", "😠 Angry", "😐 Neutral"])
+    data["Trigger"] = st.text_input("What triggered this mood?")
+    data["User"] = user
 
-for tab, headers in tabs.items():
-    if tab not in existing_tabs:
-        ws = sheet.add_worksheet(title=tab, rows="100", cols=str(len(headers)))
-        ws.append_row(headers)
-        created.append(tab)
-    else:
+elif tab == "Daily journal":
+    data["Date"] = datetime.today().strftime("%Y-%m-%d")
+    data["Summary"] = st.text_area("What happened today?")
+    data["Keywords"] = st.text_input("Keywords (comma-separated)")
+    data["User"] = user
+
+elif tab == "Reminders":
+    data["Task"] = st.text_input("Reminder Task")
+    data["Date"] = st.date_input("Reminder Date")
+    data["Time"] = st.time_input("Reminder Time")
+    data["Status"] = "Pending"
+    data["User"] = user
+
+elif tab == "Learning":
+    data["Date"] = datetime.today().strftime("%Y-%m-%d")
+    data["WhatWasLearned"] = st.text_area("What did you learn?")
+    data["Context"] = st.text_input("Context or Example")
+    data["User"] = user
+
+elif tab == "Quotes":
+    data["Date"] = datetime.today().strftime("%Y-%m-%d")
+    data["Quote"] = st.text_area("Enter the quote")
+    data["Source"] = st.text_input("Quote Source")
+    data["User"] = user
+
+# ✅ Submit Button
+if st.button("💾 Save Entry"):
+    try:
         ws = sheet.worksheet(tab)
-        current_headers = ws.row_values(1)
-        merged_headers = list(current_headers)
-        for h in headers:
-            if h not in current_headers:
-                merged_headers.append(h)
-        if merged_headers != current_headers:
-            ws.resize(rows=100, cols=len(merged_headers))
-            ws.update("A1", [merged_headers])
-            updated.append(f"{tab} (+{len(merged_headers) - len(current_headers)} columns)")
-
-# 6️⃣ Show status
-if created:
-    st.success(f"🆕 Tabs Created: {', '.join(created)}")
-if updated:
-    st.info(f"🛠️ Tabs Updated: {', '.join(updated)}")
-if not created and not updated:
-    st.success("✅ All tabs and columns already perfect!")
-
-st.caption("📌 AniGPT setup complete. Ready to log data and grow with you! 🚀")
+        headers = ws.row_values(1)
+        row = [data.get(h, "") for h in headers]
+        ws.append_row(row)
+        st.success("✅ Entry saved successfully!")
+    except Exception as e:
+        st.error(f"❌ Failed to save entry.\n\n{e}")
