@@ -9,7 +9,16 @@ import pandas as pd
 json_key = json.loads(st.secrets["GOOGLE_SHEET_JSON"])
 creds = Credentials.from_service_account_info(json_key)
 client = gspread.authorize(creds)
-sheet = client.open("AniGPT_DB")
+import streamlit as st
+
+# Get sheet name from Streamlit secrets for flexibility and security
+SHEET_NAME = st.secrets.get("GOOGLE_SHEET_NAME", "AniGPT_DB")
+
+try:
+    sheet = client.open(SHEET_NAME)
+except Exception as e:
+    st.error(f"Failed to open Google Sheet '{SHEET_NAME}': {e}")
+    sheet = None
 
 # Define required tabs and their headers
 tabs_info = {
