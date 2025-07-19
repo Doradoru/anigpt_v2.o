@@ -1,54 +1,44 @@
 import streamlit as st
-import gspread
-from google.oauth2.service_account import Credentials
-from datetime import datetime
-import pytz
+from utils import register_user, login_user
 
-# ---------- SETUP ----------
-st.set_page_config(page_title="AniGPT Day 8", layout="centered")
+st.set_page_config(page_title="AniGPT Login", layout="centered")
+st.title("🔐 AniGPT Login System")
 
-# ---------- AUTH ----------
-scope = ["https://www.googleapis.com/auth/spreadsheets",
-         "https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_info(
-    st.secrets["GOOGLE_SHEET_JSON"], scopes=scope)
-client = gspread.authorize(creds)
-sheet = client.open("AniGPT_DB")
+# Session state
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
 
-# ---------- CHECK + CREATE TABS ----------
-required_tabs = [
-    "Memory", "Mood logs", "Daily journal", "Learning", "Reminders",
-    "Life goals", "Voice logs", "Anibook outline", "Improvement notes",
-    "Quotes", "User facts", "Task done", "Auto backup logs"
-]
-existing_tabs = [ws.title for ws in sheet.worksheets()]
+# Login / Register form
+tab1, tab2 = st.tabs(["🔓 Login", "🆕 Register"])
 
-for tab in required_tabs:
-    if tab not in existing_tabs:
-        sheet.add_worksheet(title=tab, rows=1000, cols=10)
+with tab1:
+    st.subheader("Login to AniGPT")
+    uname = st.text_input("Name")
+    upass = st.text_input("Password", type="password")
+    if st.button("Login"):
+        success = login_user(uname, upass)
+        if success:
+            st.success("✅ Login successful!")
+            st.session_state.logged_in = True
+            st.session_state.username = uname
+            st.experimental_rerun()
+        else:
+            st.error("❌ Invalid credentials")
 
-st.success("✅ Connected to AniGPT_DB and Tabs Verified")
+with tab2:
+    st.subheader("Create New Account")
+    new_name = st.text_input("New Name")
+    new_pass = st.text_input("New Password", type="password")
+    if st.button("Register"):
+        created, msg = register_user(new_name, new_pass)
+        if created:
+            st.success("✅ " + msg)
+        else:
+            st.error("❌ " + msg)
 
-# ---------- DATE ----------
-india = pytz.timezone("Asia/Kolkata")
-now = datetime.now(india)
-today = now.strftime("%d-%m-%Y")
-
-# ---------- MOOD LOGGER ----------
-st.header("🧠 AniGPT - Mood Logger")
-
-mood = st.selectbox("😌 How are you feeling today?", ["Happy", "Sad", "Angry", "Excited", "Tired", "Neutral"])
-trigger = st.text_input("🔍 What triggered this mood?")
-submit = st.button("Save Mood")
-
-if submit:
-    if not trigger.strip():
-        st.warning("⚠️ Please describe what triggered your mood.")
-    else:
-        mood_sheet = sheet.worksheet("Mood logs")
-        mood_sheet.append_row([today, mood, trigger])
-        st.success("✅ Mood successfully logged!")
-
-# ---------- FOOTER ----------
-st.markdown("---")
-st.caption("🛠️ Day 8 | AniGPT v2 - Mood Logger with Google Sheet")
+# After login
+if st.session_state.logged_in:
+    st.success(f"Welcome, {st.session_state.username} 👋")
+    st.page_link("app_main.py", label="➡️ Go to AniGPT Dashboard", icon="🧠")
