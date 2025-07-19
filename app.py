@@ -1,111 +1,105 @@
 import streamlit as st
+import json
 import gspread
 from google.oauth2.service_account import Credentials
-import json
-import datetime
-import pandas as pd
+from datetime import datetime
 
-# Load secret credentials from Streamlit secrets
-json_key = json.loads(st.secrets["GOOGLE_SHEET_JSON"])
-creds = Credentials.from_service_account_info(json_key)
-client = gspread.authorize(creds)
-import streamlit as st
+# Load service account info from secrets.toml
+service_account_info = json.loads(st.secrets["GOOGLE_SHEET_JSON"])
+credentials = Credentials.from_service_account_info(service_account_info)
 
-# Get sheet name from Streamlit secrets for flexibility and security
-SHEET_NAME = st.secrets.get("GOOGLE_SHEET_NAME", "AniGPT_DB")
+# Connect to Google Sheets
+client = gspread.authorize(credentials)
+sheet = client.open("AniGPT_DB")
 
-try:
-    sheet = client.open(SHEET_NAME)
-except Exception as e:
-    st.error(f"Failed to open Google Sheet '{SHEET_NAME}': {e}")
-    sheet = None
+# Define required sheet tabs
+required_tabs = [
+    "Memory", "Mood logs", "Daily journal", "Learning", "Reminders", "Life goals",
+    "Voice logs", "Anibook outline", "Improvement notes", "Quotes",
+    "User facts", "Task done", "Auto backup logs"
+]
 
-# Define required tabs and their headers
-tabs_info = {
-    "Memory": ["Date", "User", "Memory"],
-    "Mood logs": ["Date", "User", "Mood", "Trigger"],
-    "Daily journal": ["Date", "User", "Summary", "Keywords"],
-    "Learning": ["Date", "User", "WhatWasLearned", "Context"],
-    "Reminders": ["Task", "Date", "Time", "Status", "User"],
-    "Life goals": ["Goal", "Category", "Target Date", "Progress", "User"],
-    "Voice logs": ["Date", "User", "Transcript"],
-    "Anibook outline": ["Chapter", "Title", "Points", "User"],
-    "Improvement notes": ["Date", "User", "Issue", "Solution"],
-    "Quotes": ["Quote", "Author", "User"],
-    "User facts": ["User", "Fact", "Date"],
-    "Task done": ["Task", "Date", "Status", "User"],
-    "Auto backup logs": ["Date", "User", "BackupInfo"]
-}
+# Create missing tabs if needed
+existing_tabs = [ws.title for ws in sheet.worksheets()]
+for tab in required_tabs:
+    if tab not in existing_tabs:
+        sheet.add_worksheet(title=tab, rows=1000, cols=20)
 
-# Ensure tabs exist with correct headers
-for tab, headers in tabs_info.items():
-    try:
-        ws = sheet.worksheet(tab)
-        current_headers = ws.row_values(1)
-        if current_headers != headers:
-            for i, h in enumerate(headers):
-                ws.update_cell(1, i+1, h)
-    except gspread.exceptions.WorksheetNotFound:
-        sheet.add_worksheet(title=tab, rows="100", cols="20")
-        ws = sheet.worksheet(tab)
-        ws.append_row(headers)
-
-# Function to auto-detect tab
-def detect_tab(text):
-    text_lower = text.lower()
-    if any(word in text_lower for word in ["happy", "sad", "angry", "depressed"]):
+# Helper to detect type of input
+def detect_input_type(user_input):
+    lower_input = user_input.lower()
+    if "mood:" in lower_input:
         return "Mood logs"
-    elif any(word in text_lower for word in ["learn", "study", "course", "understood"]):
+    elif "today i learned" in lower_input:
         return "Learning"
-    elif any(word in text_lower for word in ["remind", "todo", "task", "due", "schedule"]):
+    elif "remind me" in lower_input or "reminder:" in lower_input:
         return "Reminders"
-    elif any(word in text_lower for word in ["goal", "dream", "plan", "achieve"]):
+    elif "goal:" in lower_input:
         return "Life goals"
-    elif any(word in text_lower for word in ["journal", "diary", "summary"]):
-        return "Daily journal"
-    elif any(word in text_lower for word in ["voice", "record", "said"]):
-        return "Voice logs"
-    elif any(word in text_lower for word in ["chapter", "outline", "story", "book"]):
-        return "Anibook outline"
-    elif any(word in text_lower for word in ["improve", "problem", "fix", "issue"]):
-        return "Improvement notes"
-    elif any(word in text_lower for word in ["quote", "inspire", "motivate"]):
+    elif "quote:" in lower_input:
         return "Quotes"
-    elif any(word in text_lower for word in ["fact", "about me", "info"]):
-        return "User facts"
-    elif any(word in text_lower for word in ["done", "completed", "finished"]):
+    elif "voice log:" in lower_input:
+        return "Voice logs"
+    elif "journal:" in lower_input:
+        return "Daily journal"
+    elif "memory:" in lower_input:
+        return "Memory"
+    elif "done:" in lower_input:
         return "Task done"
-    elif any(word in text_lower for word in ["backup", "autosave"]):
-        return "Auto backup logs"
+    elif "fact:" in lower_input:
+        return "User facts"
+    elif "improve:" in lower_input:
+        return "Improvement notes"
+    elif "anibook:" in lower_input:
+        return "Anibook outline"
     else:
         return "Memory"
 
+# Helper to save to sheet
+def save_to_sheet(tab, data):
+    ws = sheet.worksheet(tab)
+    ws.append_row(data)
+
 # Streamlit UI
-st.title("🧠 AniGPT v2.0 – Personal Learning Assistant")
-user = st.selectbox("👤 Select user", ["Ani", "Anne"])
-input_text = st.text_area("📝 Enter your update")
+st.set_page_config(page_title="🧠 AniGPT v2", page_icon="🤖")
+st.title("🧠 AniGPT - Your Self-Learning AI Assistant")
 
-if st.button("💾 Save Entry"):
-    if input_text.strip() == "":
-        st.warning("Please enter some text.")
+user_input = st.text_area("What would you like to share today?", height=150)
+
+if st.button("➕ Save"):
+    if user_input.strip() == "":
+        st.warning("Please write something before saving.")
     else:
-        tab = detect_tab(input_text)
-        ws = sheet.worksheet(tab)
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        tab = detect_input_type(user_input)
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Prepare row based on tab headers
-        headers = ws.row_values(1)
-        row = []
-        for header in headers:
-            if "Date" in header:
-                row.append(now)
-            elif "User" in header:
-                row.append(user)
-            elif "Memory" in header or "Summary" in header or "Task" in header or "Transcript" in header or "Quote" in header or "BackupInfo" in header or "Fact" in header or "Goal" in header or "Issue" in header or "Chapter" in header or "Title" in header or "Points" in header or "Author" in header or "Context" in header or "WhatWasLearned" in header:
-                row.append(input_text)
-            else:
-                row.append("")
+        # Format data based on tab type
+        if tab == "Mood logs":
+            mood = user_input.split("mood:")[-1].strip()
+            save_to_sheet(tab, [now.split(" ")[0], mood, ""])
+        elif tab == "Learning":
+            save_to_sheet(tab, [now.split(" ")[0], user_input, "User input"])
+        elif tab == "Reminders":
+            save_to_sheet(tab, [user_input, now.split(" ")[0], now.split(" ")[1], "Pending"])
+        elif tab == "Life goals":
+            save_to_sheet(tab, [user_input, "Personal", "", "Not started"])
+        elif tab == "Daily journal":
+            save_to_sheet(tab, [now.split(" ")[0], user_input, "User journal"])
+        elif tab == "Quotes":
+            save_to_sheet(tab, [user_input])
+        elif tab == "Task done":
+            save_to_sheet(tab, [user_input, now.split(" ")[0]])
+        elif tab == "Voice logs":
+            save_to_sheet(tab, [now, user_input])
+        elif tab == "Anibook outline":
+            save_to_sheet(tab, [now, user_input])
+        elif tab == "User facts":
+            save_to_sheet(tab, [user_input])
+        elif tab == "Improvement notes":
+            save_to_sheet(tab, [now, user_input])
+        elif tab == "Memory":
+            save_to_sheet(tab, [now, user_input])
+        else:
+            save_to_sheet("Memory", [now, user_input])
 
-        ws.append_row(row)
-        st.success(f"✅ Saved to '{tab}' tab!")
-
+        st.success(f"Saved to **{tab}** tab ✅")
