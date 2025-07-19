@@ -28,3 +28,13 @@ for tab in required_tabs:
         sheet.add_worksheet(title=tab, rows=1000, cols=10)
 
 st.success("✅ All required tabs are present or created.")
+st.subheader("Log Your Mood 😌")
+
+mood = st.selectbox("How are you feeling today?", ["Happy", "Sad", "Stressed", "Excited", "Neutral"])
+trigger = st.text_input("What triggered this mood?")
+submit = st.button("Save Mood")
+
+if submit:
+    mood_sheet = sheet.worksheet("Mood logs")
+    mood_sheet.append_row([st.session_state.get("date", "Today"), mood, trigger])
+    st.success("📝 Mood Logged Successfully!")
