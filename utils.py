@@ -1,25 +1,13 @@
-# utils.py
-
 import gspread
-import json
-import streamlit as st
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 
-# Define scope
-scope = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-]
-
-# Load credentials from secrets.toml
-creds_dict = json.loads(st.secrets["GOOGLE_SHEET_JSON"])
-creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
 client = gspread.authorize(creds)
+
 sheet = client.open("AniGPT_DB")
 
-# ✅ Login Function
 def login_user(name, password):
     try:
         worksheet = sheet.worksheet("Users")
@@ -29,15 +17,12 @@ def login_user(name, password):
                 return True
         return False
     except Exception as e:
-        st.error(f"Login error: {e}")
         return False
 
-# ✅ Optional: New User Register Function (future use)
 def register_user(name, password):
     try:
         worksheet = sheet.worksheet("Users")
-        worksheet.append_row([name, password, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+        worksheet.append_row([name, password, str(datetime.now())])
         return True
     except Exception as e:
-        st.error(f"Registration error: {e}")
         return False
