@@ -5,7 +5,8 @@ from datetime import datetime
 
 
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
+creds = Credentials.from_service_account_info(st.secrets["GOOGLE_SHEET_JSON"], scopes=scope)
+
 client = gspread.authorize(creds)
 
 sheet = client.open("AniGPT_DB")
