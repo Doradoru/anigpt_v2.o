@@ -2,11 +2,15 @@ import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 
+# Scope and credentials
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = Credentials.from_service_account_info(st.secrets["GOOGLE_SHEET_JSON"], scopes=scope)
 client = gspread.authorize(creds)
+
+# Open the main Sheet
 sheet = client.open("AniGPT_DB")
 
+# Login Function
 def login_user(name, password):
     try:
         worksheet = sheet.worksheet("Users")
@@ -19,6 +23,7 @@ def login_user(name, password):
         st.error(f"Login error: {e}")
         return False
 
+# Register Function
 def register_user(name, password):
     try:
         worksheet = sheet.worksheet("Users")
