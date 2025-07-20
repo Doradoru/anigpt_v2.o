@@ -5,7 +5,7 @@ st.set_page_config(page_title="AniGPT Login", layout="centered")
 st.title("🔐 AniGPT Login System")
 
 menu = ["Login", "Register"]
-choice = st.selectbox("Menu", menu)
+choice = st.selectbox("Select Action", menu)
 
 if choice == "Login":
     st.subheader("Login to AniGPT")
@@ -13,17 +13,16 @@ if choice == "Login":
     upass = st.text_input("Password", type='password')
     if st.button("Login"):
         if login_user(uname, upass):
-            st.success(f"Welcome, {uname} 🎉")
-            st.info("You're now logged in to AniGPT.")
+            st.success(f"Welcome {uname}!")
         else:
-            st.error("Invalid credentials ❌")
+            st.error("Incorrect username or password ❌")
 
 elif choice == "Register":
-    st.subheader("Register New User")
+    st.subheader("Create New Account")
     new_user = st.text_input("New Username")
     new_pass = st.text_input("New Password", type='password')
     if st.button("Register"):
         if register_user(new_user, new_pass):
-            st.success("Account created successfully 🎉 You can now log in.")
+            st.success("User registered successfully 🎉")
         else:
-            st.error("Something went wrong during registration ❌")
+            st.error("Failed to register user ❌")
