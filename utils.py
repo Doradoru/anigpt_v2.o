@@ -1,36 +1,40 @@
 import gspread
-from google.oauth2.service_account import Credentials
 from datetime import datetime
-import streamlit as st
-import json
+from google.oauth2.service_account import Credentials
 
-def connect_to_sheet():
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets",
-             "https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/drive.file"]
+# --- Google Sheets Setup ---
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
+client = gspread.authorize(creds)
+sheet = client.open("AniGPT_DB")
 
-    creds_dict = json.loads(st.secrets["GOOGLE_SHEET_JSON"])
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    client = gspread.authorize(creds)
-    sheet = client.open("AniGPT_DB")
-    return sheet
+# --- Ensure 'Users' Tab ---
+def ensure_users_tab():
+    try:
+        ws = sheet.worksheet("Users")
+        headers = ws.row_values(1)
+        required = ["Name", "Password", "Created At"]
+        if headers != required:
+            ws.clear()
+            ws.append_row(required)
+    except gspread.exceptions.WorksheetNotFound:
+        ws = sheet.add_worksheet(title="Users", rows=100, cols=3)
+        ws.append_row(["Name", "Password", "Created At"])
 
-def register_user(name, password):
-    sheet = connect_to_sheet()
-    users_tab = sheet.worksheet("Users")
-    existing = users_tab.col_values(1)
-    
-    if name in existing:
-        return False, "Username already exists."
-    
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    users_tab.append_row([name, password, now])
-    return True, "Account created successfully!"
+ensure_users_tab()
 
+# --- Login Function ---
 def login_user(name, password):
-    sheet = connect_to_sheet()
-    users_tab = sheet.worksheet("Users")
-    data = users_tab.get_all_records()
-    for user in data:
-        if user['Name'] == name and user['Password'] == password:
-            return True
+    ws = sheet.worksheet("Users")
+    users = ws.get_all_records()
+    for user in users:
+        if "Name" in user and "Password" in user:
+            if user["Name"] == name and user["Password"] == password:
+                return True
     return False
+
+# --- Optional: Signup Function ---
+def signup_user(name, password):
+    ws = sheet.worksheet("Users")
+    ws.append_row([name, password, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+    return True
